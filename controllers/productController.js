@@ -1,6 +1,7 @@
 import asyncHandler from "../middleware/asyncHandler.js";
 import Product from "../models/productModels.js";
-
+import { v2 as cloudinary } from "cloudinary";
+import streamifier from "streamifier";
 const createProduct = asyncHandler(async (req, res) => {
   const newProduct = await Product.create(req.body);
   return res.status(201).json({
@@ -20,8 +21,10 @@ const allProduct = asyncHandler(async (req, res) => {
       // ini pake regex dan tidak case sesitive
       name: { $regex: name, $options: "i" },
     });
-  } else {
+  } else if (category) {
     query = Product.find({ category });
+  } else {
+    query = Product.find();
   }
 
   /**
@@ -93,21 +96,46 @@ const deleteProduct = asyncHandler(async (req, res) => {
   });
 });
 
+// ini lokal
+// const fileUpload = asyncHandler(async (req, res) => {
+//   const file = req.file;
+//   if (!file) {
+//     res.status(400);
+//     throw new Error("Tidak ada File yang diinput");
+//   }
+
+//   const imageFileName = file.filename;
+//   const pathImageFile = `/uploads/${imageFileName}`;
+
+//   res.status(201).json({
+//     massage: "Image Berhasil Di upload",
+//     image: pathImageFile,
+//     file,
+//   });
+// });
+
+// ini cloudinary
 const fileUpload = asyncHandler(async (req, res) => {
-  const file = req.file;
-  if (!file) {
-    res.status(400);
-    throw new Error("Tidak ada File yang diinput");
-  }
+  const stream = cloudinary.uploader.upload_stream(
+    {
+      folder: "uploads",
+      allowed_formats: ["jpg", "png"],
+    },
+    function (err, result) {
+      if (err) {
+        return res.status(500).json({
+          message: "gagal upload gambar",
+          error: err,
+        });
+      }
+      res.json({
+        message: "Gambar Berhasil di Upload",
+        url: result.secure_url,
+      });
+    }
+  );
 
-  const imageFileName = file.filename;
-  const pathImageFile = `/uploads/${imageFileName}`;
-
-  res.status(201).json({
-    massage: "Image Berhasil Di upload",
-    image: pathImageFile,
-    file,
-  });
+  streamifier.createReadStream(req.file.buffer).pipe(stream);
 });
 
 export {
